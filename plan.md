@@ -1,12 +1,12 @@
-# Plan: Recreate the Teslo Shop API in Spring Boot
+# Plan: Recreate the Porfolio Web API in Spring Boot
 
-This document analyzes the existing NestJS + TypeORM implementation (`teslo-shop`) and provides a step-by-step plan to recreate the **same REST API** in **Java / Spring Boot**, preserving endpoints, payloads, auth flow, WebSocket behavior, and Docker setup.
+This document analyzes the existing NestJS + TypeORM implementation (`portfolio`) and provides a step-by-step plan to recreate the **same REST API** in **Java / Spring Boot**, preserving endpoints, payloads, auth flow, and Docker setup.
 
 ---
 
 ## 1. Overview of the Original API
 
-A small e-commerce backend exposing a REST API under the `/api` prefix plus a Socket.IO WebSocket gateway.
+A small e-commerce backend exposing a REST API under the `/api` prefix.
 
 | Feature            | Original (NestJS)                            | Target (Spring Boot)                              |
 | ------------------ | -------------------------------------------- | ------------------------------------------------- |
@@ -19,7 +19,6 @@ A small e-commerce backend exposing a REST API under the `/api` prefix plus a So
 | Password hashing   | `bcrypt`                                     | Spring Security `BCryptPasswordEncoder`           |
 | File upload        | Multer (disk storage)                        | Spring `MultipartFile`                            |
 | Static files       | `ServeStaticModule`                          | Resource handler / `WebMvcConfigurer`             |
-| WebSocket          | Socket.IO gateway                            | Spring WebSocket (STOMP or raw)                   |
 | Docs               | Swagger (`@nestjs/swagger`)                  | `springdoc-openapi`                               |
 | Config             | `@nestjs/config` + `.env`                    | Spring profiles + `.env` (or `SPRING_*` env vars) |
 | Container          | `docker-compose` (Postgres only)             | Same `docker-compose`                             |
@@ -87,32 +86,15 @@ A small e-commerce backend exposing a REST API under the `/api` prefix plus a So
 | ------ | --------------------------- | ---- | -------------------------------------------------- |
 | GET    | `/files/product/:imageName` | none | image file from `static/products`                  |
 | POST   | `/files/product`            | none | multipart field `file` → `{ secureUrl, fileName }` |
+| GET    | `/files/pdf/:pdfName`       | none | image file from `static/pdf`                       |
+| POST   | `/files/pdf`                | none | multipart field `file` → `{ secureUrl, fileName }` |
 
 - Upload: `Content-Type: multipart/form-data`, field name `file`.
-- Allowed extensions: `jpg, jpeg, png, gif`.
+- Allowed extensions: `jpg, jpeg, png, webp, pdf`.
 - Stored name: `{uuid}.{extension}` (random UUID v4 + original mimetype extension).
-- Saved to `./static/products`.
+- Saved to `./static/products` and `./static/pdf`.
 - Response: `{ secureUrl: `${HOST_API}/files/product/{name}`, fileName: name }`.
 - Serving: returns 400 "No product found with image {imageName}" if missing.
-
-### Seed — `/api/seed`
-
-| Method | Path    | Auth                       | Response          |
-| ------ | ------- | -------------------------- | ----------------- |
-| GET    | `/seed` | none (guard commented out) | `"SEED EXECUTED"` |
-
-- Deletes all products and users, re-inserts 2 seed users (`test1@google.com` / `test2@google.com`, password `Abc123`) and the full product catalog from `seed-data.ts` (1 product per image pair; products reference the first created admin user).
-
-### WebSocket (Socket.IO gateway, no path prefix)
-
-- Connection requires JWT sent in the handshake header `authentication` (custom header name). On invalid token → `client.disconnect()`.
-- On connect: emits `clients-updated` with array of connected socket IDs.
-- On disconnect: removes client, emits `clients-updated` again.
-- Single connection per user: reconnecting the same user disconnects their previous socket.
-- Client event `message-from-client` with `{ message }` → server broadcasts `message-from-server` `{ fullName, message }` to ALL clients (including sender).
-- `message` min length 1.
-
----
 
 ## 3. Data Model (JPA Entities)
 

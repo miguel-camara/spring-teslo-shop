@@ -14,18 +14,9 @@ public class FilesService {
     public FilesService(AppProperties properties) {
         this.uploadDir = new File(properties.getUploadDir());
         this.uploadDirPdf = new File(properties.getUploadDirPdf());
-        System.out.println("---------------------------");
-        System.out.println(
-            "this.uploadDir = " + this.uploadDir.getAbsolutePath()
-        );
-        System.out.println(
-            "this.uploadDirPdf = " + this.uploadDirPdf.getAbsolutePath()
-        );
-        System.out.println("---------------------------");
     }
 
     public File getStaticProductImage(String imageName) {
-        System.out.println(this.uploadDir.getAbsolutePath());
         File file = new File(this.uploadDir, imageName);
         if (!file.exists()) {
             throw new ApiBadRequestException(
@@ -36,7 +27,6 @@ public class FilesService {
     }
 
     public File getStaticProductPdf(String pdfName) {
-        System.out.println(this.uploadDirPdf.getAbsolutePath());
         File file = new File(this.uploadDirPdf, pdfName);
         if (!file.exists()) {
             throw new ApiBadRequestException("Not found with pdf " + pdfName);
