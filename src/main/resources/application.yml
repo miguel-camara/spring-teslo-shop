@@ -1,0 +1,44 @@
+server:
+  port: ${PORT:3000}
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: teslo-shop
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:TesloDB}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:MySecr3tPassWord@as2}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+
+app:
+  host-api: ${HOST_API:http://localhost:3000/api}
+  upload-dir: static/products
+  upload-dir-pdf: static/pdf
+  jwt:
+    secret: ${JWT_SECRET:Est3EsMISE3Dsecreto32s}
+    expiration: ${JWT_EXPIRATION:7200}
+  socketio:
+    port: ${SOCKETIO_PORT:3001}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    org.hibernate.SQL: warn
