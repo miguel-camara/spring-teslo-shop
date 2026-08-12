@@ -37,34 +37,26 @@ A small e-commerce backend exposing a REST API under the `/api` prefix.
 
 ### Auth — `/api/auth`
 
-| Method | Path                 | Auth                                      | Request body                    | Response                  |
-| ------ | -------------------- | ----------------------------------------- | ------------------------------- | ------------------------- |
-| POST   | `/auth/register`     | none                                      | `{ email, password, fullName }` | `{ user, token }` (201)   |
-| POST   | `/auth/login`        | none                                      | `{ email, password }`           | `{ user, token }` (200)   |
-| GET    | `/auth/check-status` | Bearer JWT (any role)                     | —                               | `{ user, token }`         |
-| GET    | `/auth/private`      | Bearer JWT                                | —                               | debug payload (see below) |
-| GET    | `/auth/private2`     | Bearer JWT + role `super-user` or `admin` | —                               | `{ ok: true, user }`      |
-| GET    | `/auth/private3`     | Bearer JWT + role `admin`                 | —                               | `{ ok: true, user }`      |
+| Method | Path          | Auth | Request body          | Response                |
+| ------ | ------------- | ---- | --------------------- | ----------------------- |
+| POST   | `/auth/login` | none | `{ email, password }` | `{ user, token }` (200) |
 
-- **User JSON shape:** `{ id, email, fullName, isActive, roles }` — `password` is NEVER serialized.
+- **User JSON shape:** `{ id, email }` — `password` is NEVER serialized.
 - **Token:** JWT HS256, payload `{ id }`, expiry **2 hours**, secret from env `JWT_SECRET`.
 - **register**: email normalized to lowercase+trim; password hashed with bcrypt cost 10; returns `{ user, token }`.
 - **login**: email lookup with password fetched explicitly; on bad email → `401` "Credentials are not valid (email)"; on bad password → `401` "Credentials are not valid (password)".
 - **check-status**: re-issues a fresh token for the authenticated user.
-- **/auth/private** response (reference only): `{ ok: true, message: "Hola Mundo Private", user, userEmail, rawHeaders, headers }`.
 
-### Products — `/api/products`
+### Projects — `/api/projects`
 
-| Method | Path              | Auth                  | Body / Params                 | Response                       |
-| ------ | ----------------- | --------------------- | ----------------------------- | ------------------------------ |
-| POST   | `/products`       | Bearer JWT (any role) | `CreateProductDto`            | Product (201)                  |
-| GET    | `/products`       | none                  | `?limit=10&offset=0&gender=`  | `{ count, pages, products[] }` |
-| GET    | `/products/:term` | none                  | term = UUID **or** title/slug | Product (plain)                |
-| PATCH  | `/products/:id`   | Bearer JWT + `admin`  | `UpdateProductDto` (partial)  | Product (plain)                |
-| DELETE | `/products/:id`   | Bearer JWT + `admin`  | —                             | 200/204                        |
+| Method | Path            | Auth                  | Body / Params                | Response                       |
+| ------ | --------------- | --------------------- | ---------------------------- | ------------------------------ |
+| POST   | `/projects`     | Bearer JWT (any role) | `CreateProjectDto`           | Project (201)                  |
+| GET    | `/projects`     | none                  | `?limit=10&offset=0`         | `{ count, pages, projects[] }` |
+| PATCH  | `/projects/:id` | Bearer JWT + `admin`  | `UpdateProjectDto` (partial) | Project (plain)                |
+| DELETE | `/projects/:id` | Bearer JWT + `admin`  | —                            | 200/204                        |
 
 - **Product JSON (plain form):** `{ id, title, price, description, slug, stock, sizes[], gender, tags[], images: [url...] }` — images flattened to an array of URL strings (not objects). Created/updated responses also include `user`.
-- **Find by term:** if `term` is a valid UUID → lookup by `id`; else match `UPPER(title) = UPPER(term)` OR `slug = lower(term)`; case-insensitive title. `404` "Product with {term} not found".
 - **Pagination:** `limit` default 10, `offset` default 0; `gender` filter matches `gender = :g OR gender = 'unisex'`; ordered by `id ASC`; `count` = total matches; `pages = ceil(count / limit)`.
 - **Validation (create):**
   - `title`: string, min 1 (unique)
@@ -77,15 +69,14 @@ A small e-commerce backend exposing a REST API under the `/api` prefix.
   - `tags`: string array, optional
   - `images`: string array, optional
 - **Update:** partial (all fields optional); if `images` present, they REPLACE the existing set inside a transaction.
-- **Slug logic:** if absent on insert, derive from `title`; always lowercase, spaces → `_`, apostrophes removed.
 - **DB errors:** unique violation (`23505`) → `400` with DB detail message.
 
 ### Files — `/api/files`
 
 | Method | Path                        | Auth | Response                                           |
 | ------ | --------------------------- | ---- | -------------------------------------------------- |
-| GET    | `/files/product/:imageName` | none | image file from `static/products`                  |
-| POST   | `/files/product`            | none | multipart field `file` → `{ secureUrl, fileName }` |
+| GET    | `/files/project/:imageName` | none | image file from `static/projects`                  |
+| POST   | `/files/project`            | none | multipart field `file` → `{ secureUrl, fileName }` |
 | GET    | `/files/pdf/:pdfName`       | none | image file from `static/pdf`                       |
 | POST   | `/files/pdf`                | none | multipart field `file` → `{ secureUrl, fileName }` |
 
@@ -93,7 +84,7 @@ A small e-commerce backend exposing a REST API under the `/api` prefix.
 - Allowed extensions: `jpg, jpeg, png, webp, pdf`.
 - Stored name: `{uuid}.{extension}` (random UUID v4 + original mimetype extension).
 - Saved to `./static/products` and `./static/pdf`.
-- Response: `{ secureUrl: `${HOST_API}/files/product/{name}`, fileName: name }`.
+- Response: `{ secureUrl: `${HOST_API}/files/project/{name}`, fileName: name }`.
 - Serving: returns 400 "No product found with image {imageName}" if missing.
 
 ## 3. Data Model (JPA Entities)
@@ -102,15 +93,13 @@ Table/column mapping is defined by TypeORM. Hibernate schema can be generated vi
 
 ### `users`
 
-| Column     | Type                           | Notes                                       |
-| ---------- | ------------------------------ | ------------------------------------------- |
-| `id`       | UUID PK                        | `@GeneratedValue(strategy = UUID)` / `uuid` |
-| `email`    | text, unique, not null         | normalized lowercase+trim                   |
-| `password` | text, not null                 | bcrypt hash; serialization-excluded         |
-| `fullName` | text, not null                 |                                             |
-| `isActive` | boolean, default `true`        |                                             |
-| `roles`    | text array, default `['user']` | `@ElementCollection` or custom array type   |
-| `product`  | one-to-many                    | products owned by the user                  |
+| Column     | Type                   | Notes                                       |
+| ---------- | ---------------------- | ------------------------------------------- |
+| `id`       | UUID PK                | `@GeneratedValue(strategy = UUID)` / `uuid` |
+| `email`    | text, unique, not null | normalized lowercase+trim                   |
+| `password` | text, not null         | bcrypt hash; serialization-excluded         |
+| `fullName` | text, not null         |                                             |
+| `product`  | one-to-many            | products owned by the user                  |
 
 ### `products`
 
@@ -134,7 +123,7 @@ Table/column mapping is defined by TypeORM. Hibernate schema can be generated vi
 | --------- | ---------------------- | ------------------- |
 | `id`      | serial PK (int)        |                     |
 | `url`     | text, not null         |                     |
-| `product` | many-to-one → products | `on delete cascade` |
+| `project` | many-to-one → projects | `on delete cascade` |
 
 **Notes for Hibernate:**
 
@@ -198,13 +187,13 @@ teslo-shop-spring/
 
 ```yaml
 server:
-  port: ${PORT:3000}
+  port: ${PORT:8080}
   servlet:
     context-path: /api # global /api prefix (equivalent to setGlobalPrefix)
 
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:TesloDB}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:Portfolio}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:MySecr3tPassWord@as2}
   jpa:
@@ -220,12 +209,13 @@ spring:
       max-request-size: 5MB
 
 app:
-  host-api: ${HOST_API:http://localhost:3000/api}
+  host-api: ${HOST_API:http://localhost:8080/api}
   jwt:
     secret: ${JWT_SECRET:Est3EsMISE3Dsecreto32s}
     expiration: 7200 # 2 hours in seconds
   stage: ${STAGE:dev}
   upload-dir: /static/products
+  upload-dir-pdf: /static/pdf
 ```
 
 ### Env var mapping (`.env`)
@@ -243,14 +233,9 @@ app:
    - Populates `SecurityContext` with `{ id, roles, fullName }` as the principal.
 2. **`SecurityConfig`**:
    - `csrf().disable()`, `cors()` enabled for all.
-   - Public: `/auth/register`, `/auth/login`, `/products/**` (GET), `/files/**`, `/seed`, `/api-docs/**`, `/swagger-ui/**`, static resources.
+   - Public: `/auth/login`, `/projects/**` (GET), `/files/**`, `/api-docs/**`, `/swagger-ui/**`, static resources.
    - Authenticated: `/auth/**` GETs, `POST /products`.
-   - Admin-only: `PATCH /products/**`, `DELETE /products/**`, `/auth/private2`, `/auth/private3`.
    - `BCryptPasswordEncoder` bean.
-3. **Role guard parity** (`user-role.guard.ts` semantics):
-   - `private2`: principal has any of `["super-user","admin"]` → else `403 Forbidden` with message `User {fullName} need a valid role: [super-user, admin]`.
-   - `private3`: role `admin` only.
-   - Use `@PreAuthorize("hasAnyRole(...)")` or path-based `requestMatchers`.
 
 ---
 
@@ -264,8 +249,8 @@ app:
 @GetMapping
 public PaginationResponse findAll(@Valid PaginationRequest p)   // GET /api/products?limit&offset&gender
 
-@GetMapping("/{term}")
-public ProductResponse findOne(@PathVariable String term)        // UUID → by id, else title/slug
+@GetMapping("/{id}")
+public ProductResponse findOne(@PathVariable UUID id)
 
 @PostMapping
 public ProductResponse create(@RequestBody @Valid CreateProductRequest body, @AuthenticationPrincipal User user)
@@ -285,9 +270,7 @@ public ResponseEntity<Void> remove(@PathVariable UUID id)
 **FilesController**
 
 - `GET /files/product/{imageName}` → return `Resource` from `static/products` (or throw 400 if missing).
-- `POST /files/product` → `MultipartFile file`; validate extension in `{jpg,jpeg,png,gif}`; save as `UUID.randomUUID().toString() + "." + ext`; return `{ secureUrl: hostApi + "/files/product/" + name, fileName: name }`.
-
-**SeedController** — `GET /seed` → delete all products+users, insert seed users (bcrypt `Abc123`) and products from `seed-data.json`; return `"SEED EXECUTED"`.
+- `POST /files/product` → `MultipartFile file`; validate extension in `{jpg,jpeg,png,webp}`; save as `UUID.randomUUID().toString() + "." + ext`; return `{ secureUrl: hostApi + "/files/product/" + name, fileName: name }`.
 
 ---
 
@@ -348,17 +331,74 @@ Port the `static/products` images folder and `seed-data.ts` → `seed-data.json`
 
 ## 12. Implementation Order (checklist)
 
-1. Scaffold Spring Boot project (Spring Initializr: Web, Data JPA, PostgreSQL, Validation, Security, WebSocket, `springdoc-openapi`). Add jjwt + `netty-socketio` deps.
+1. Scaffold Spring Boot project (Spring Initializr: `Web`, `Data JPA`, `PostgreSQL`, `Validation`, `Security`, `springdoc-openapi`). Add jjwt deps.
 2. `application.yml` + `.env` + reuse `docker-compose.yaml`.
-3. Entities (`User`, `Product`, `ProductImage`) + repositories + `@PrePersist`/`@PreUpdate` hooks.
+3. Entities (`User`, `Proyect`, `ProyectImage`, , `ListPdf`) + repositories + `@PrePersist`/`@PreUpdate` hooks.
 4. Global exception handler + validation config (reject unknown fields).
 5. JWT: `JwtService`, `JwtAuthFilter`, `SecurityConfig`, CORS.
 6. Auth controller/service (register, login, check-status, private routes with roles).
 7. Products controller/service (create/findAll/findOne/update/remove + pagination + term search + image replacement in transaction).
 8. Files controller/service (upload + serve static).
-9. Seed controller/service + `seed-data.json`.
-10. WebSocket gateway with JWT handshake + connected-client registry.
-11. Swagger/OpenAPI config with bearer auth; verify UI at `/api/swagger-ui`.
-12. Tests (unit → integration → e2e).
-13. Dockerize the app; verify full stack with `docker compose up`.
-14. Manual parity pass: run both versions, diff every endpoint's status + body against the tables in §2.
+9. . WebSocket gateway with JWT handshake + connected-client registry.
+10. . Swagger/OpenAPI config with bearer auth; verify UI at `/api/swagger-ui`.
+11. Tests (unit → integration → e2e).
+12. Dockerize the app; verify full stack with `docker compose up`.
+13. Manual parity pass: run both versions, diff every endpoint's status + body against the tables in §2.
+
+<!-- Entity Project - Crud -->
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(columnDefinition = "uuid", updatable = false, nullable = false)
+    private UUID id;
+
+    @Column(nullable = false)
+    private String title;
+
+    @Column(columnDefinition = "text")
+    private String description;
+
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(columnDefinition = "text[]")
+    private String[] tags = new String[0];
+
+    @Column(nullable = true)
+    private String url;
+
+    @Column(nullable = true)
+    private String repoFrontend;
+
+    @Column(nullable = true)
+    private String repoBackend;
+
+    @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OrderBy("id ASC")
+    private List<ProjectImage> images = new ArrayList<>();
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id")
+    private User user;
+
+
+    <!-- Entity ListPdf independent CRUD / Mulitpart -->
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
+    private String title;
+
+    @Column(nullable = false)
+    private String url;
+
+funcionalidades
+
+.env
+properties - dev (h2 db)
+properties - prod
+
+// rutas
+/
+/auth -> solo login
+/products -> CRUD de productos
+/files -> CRUD de archivos
