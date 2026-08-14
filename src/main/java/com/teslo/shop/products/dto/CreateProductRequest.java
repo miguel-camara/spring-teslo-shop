@@ -8,7 +8,7 @@ import jakarta.validation.constraints.Size;
 public class CreateProductRequest {
 
     @NotBlank
-    @Size(min = 1)
+    @Size(min = 5)
     private String title;
 
     @Positive
@@ -24,7 +24,10 @@ public class CreateProductRequest {
     private String[] sizes;
 
     @NotBlank
-    @Pattern(regexp = "men|women|kid|unisex", message = "gender must be one of: men, women, kid, unisex")
+    @Pattern(
+        regexp = "men|women|kid|unisex",
+        message = "gender must be one of: men, women, kid, unisex"
+    )
     private String gender;
 
     private String[] tags;
