@@ -30,10 +30,8 @@ app:
   upload-dir: static/products
   upload-dir-pdf: static/pdf
   jwt:
-    secret: ${JWT_SECRET:Est3EsMISE3Dsecreto32s}
+    secret: ${JWT_SECRET:miClaveSecretaSuperSeguraDeAlMenos256BitsParaHS256}
     expiration: ${JWT_EXPIRATION:7200}
-  socketio:
-    port: ${SOCKETIO_PORT:3001}
 
 springdoc:
   swagger-ui:
