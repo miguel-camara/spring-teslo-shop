@@ -17,7 +17,9 @@ public class UserResponse {
         response.setEmail(user.getEmail());
         response.setFullName(user.getFullName());
         response.setActive(user.isActive());
-        response.setRoles(user.getRoles() != null ? user.getRoles().clone() : new String[0]);
+        response.setRoles(
+            user.getRoles() != null ? user.getRoles().clone() : new String[0]
+        );
         return response;
     }
 
