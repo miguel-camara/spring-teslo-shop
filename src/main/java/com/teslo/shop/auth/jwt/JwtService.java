@@ -5,10 +5,15 @@ import com.teslo.shop.config.JwtProperties;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
-import java.nio.charset.StandardCharsets;
+// import io.jsonwebtoken.io.Decoders;
+// import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
+
+// import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
+// import javax.crypto.spec.SecretKeySpec;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -18,13 +23,20 @@ public class JwtService {
     private final long expirationSeconds;
 
     public JwtService(JwtProperties properties) {
-        this.key = new SecretKeySpec(
-                properties.getSecret().getBytes(StandardCharsets.UTF_8),
-                "HmacSHA256");
+        // this.key = Jwts.SIG.HS256.key().build();
+
+        byte[] keyBytes = Decoders.BASE64.decode(properties.getSecret());
+        this.key = Keys.hmacShaKeyFor(keyBytes);
+
+
+        // this.key = new SecretKeySpec(
+        //         properties.getSecret().getBytes(StandardCharsets.UTF_8),
+        //         "HmacSHA256");
         this.expirationSeconds = properties.getExpiration();
     }
 
     public String generateToken(User user) {
+
         return Jwts.builder()
                 .claim("id", user.getId().toString())
                 .issuedAt(new Date())
