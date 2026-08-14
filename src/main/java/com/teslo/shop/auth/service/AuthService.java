@@ -21,7 +21,11 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
+    public AuthService(
+        UserRepository userRepository,
+        PasswordEncoder passwordEncoder,
+        JwtService jwtService
+    ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -39,41 +43,47 @@ public class AuthService {
         try {
             userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException e) {
-            throw new ApiBadRequestException("Key (email)=(" + user.getEmail() + ") already exists.");
+            throw new ApiBadRequestException(
+                "Key (email)=(" + user.getEmail() + ") already exists."
+            );
         }
 
-        return new AuthResponse(UserResponse.from(user), jwtService.generateToken(user));
+        return new AuthResponse(
+            UserResponse.from(user),
+            jwtService.generateToken(user)
+        );
     }
 
     @Transactional(readOnly = true)
     public AuthResponse login(LoginRequest request) {
-        User user = userRepository.findByEmail(request.getEmail().trim().toLowerCase())
-                .orElseThrow(() -> new ApiUnauthorizedException("Credentials are not valid (email)"));
+        User user = userRepository
+            .findByEmail(request.getEmail().trim().toLowerCase())
+            .orElseThrow(() ->
+                new ApiUnauthorizedException(
+                    "Credentials are not valid (email)"
+                )
+            );
 
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new ApiUnauthorizedException("Credentials are not valid (password)");
+        if (
+            !passwordEncoder.matches(request.getPassword(), user.getPassword())
+        ) {
+            throw new ApiUnauthorizedException(
+                "Credentials are not valid (password)"
+            );
         }
 
-        try {
         var token = jwtService.generateToken(user);
-        System.out.println(token);
-            System.out.println("UserResponse");
-         var userResponse = UserResponse.from(user);
-            System.out.println("AuthResponse");
+        var userResponse = UserResponse.from(user);
         var authResponse = new AuthResponse(userResponse, token);
+
         return authResponse;
-
-        } catch (Exception e) {
-            System.out.println("----------- exception ------------");
-            System.out.println(e);
-        System.out.println("end catch");
-        return null;
-        }
-
     }
 
     @Transactional(readOnly = true)
     public AuthResponse checkAuthStatus(User user) {
-        return new AuthResponse(UserResponse.from(user), jwtService.generateToken(user));
+        return new AuthResponse(
+            UserResponse.from(user),
+            jwtService.generateToken(user)
+        );
     }
 }
