@@ -13,8 +13,6 @@ import java.util.Enumeration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Logger;
-
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -48,7 +46,10 @@ public class AuthController {
     }
 
     @GetMapping("/private")
-    public Map<String, Object> testingPrivateRoute(@AuthenticationPrincipal User user, HttpServletRequest request) {
+    public Map<String, Object> testingPrivateRoute(
+        @AuthenticationPrincipal User user,
+        HttpServletRequest request
+    ) {
         List<String> rawHeaders = new ArrayList<>();
         Enumeration<String> headerNames = request.getHeaderNames();
         while (headerNames != null && headerNames.hasMoreElements()) {
@@ -65,22 +66,33 @@ public class AuthController {
         }
 
         return Map.of(
-                "ok", true,
-                "message", "Hola Mundo Private",
-                "user", user,
-                "userEmail", user.getEmail(),
-                "rawHeaders", rawHeaders,
-                "headers", headers);
+            "ok",
+            true,
+            "message",
+            "Hola Mundo Private",
+            "user",
+            user,
+            "userEmail",
+            user.getEmail(),
+            "rawHeaders",
+            rawHeaders,
+            "headers",
+            headers
+        );
     }
 
     @GetMapping("/private2")
-    public Map<String, Object> privateRoute2(@AuthenticationPrincipal User user) {
+    public Map<String, Object> privateRoute2(
+        @AuthenticationPrincipal User user
+    ) {
         RoleGuard.requireAny(user, "super-user", "admin");
         return Map.of("ok", true, "user", user);
     }
 
     @GetMapping("/private3")
-    public Map<String, Object> privateRoute3(@AuthenticationPrincipal User user) {
+    public Map<String, Object> privateRoute3(
+        @AuthenticationPrincipal User user
+    ) {
         RoleGuard.requireAny(user, "admin");
         return Map.of("ok", true, "user", user);
     }
