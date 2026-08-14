@@ -54,7 +54,22 @@ public class AuthService {
             throw new ApiUnauthorizedException("Credentials are not valid (password)");
         }
 
-        return new AuthResponse(UserResponse.from(user), jwtService.generateToken(user));
+        try {
+        var token = jwtService.generateToken(user);
+        System.out.println(token);
+            System.out.println("UserResponse");
+         var userResponse = UserResponse.from(user);
+            System.out.println("AuthResponse");
+        var authResponse = new AuthResponse(userResponse, token);
+        return authResponse;
+
+        } catch (Exception e) {
+            System.out.println("----------- exception ------------");
+            System.out.println(e);
+        System.out.println("end catch");
+        return null;
+        }
+
     }
 
     @Transactional(readOnly = true)
